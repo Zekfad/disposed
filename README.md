@@ -37,7 +37,7 @@ class NotificationsProvider extends DisposableContainer implements Disposable {
 
   @override
   void dispose() {
-    // Pay attention that this will be called **AFTER** [disposables] are
+    // Pay attention that this will be called **BEFORE** [disposables] are
     // disposed.
     print('NotificationsProvider is disposed.');
   }
@@ -62,10 +62,14 @@ When instance of `NotificationsCenter` from example above
 will become inaccessible internal `Finalizer` will dispose objects in following
 order:
 
-* `DisposableStreamController`
-* `NotificationsProvider`
+* `NotificationsProvider` - inner Disposable, also a Wrapper
+* `DisposableStreamController` - inner Disposable
 
 Notice that `NotificationsCenter` itself is only a wrapper (main one)
-and it wont be disposed, only garbage collected by the language GC. 
+and it wont be disposed, only garbage collected by the language GC.
+
+Such order is because parent object have references to children, therefore GC
+destroys parent first, then children looses reference and we'll be destroyed
+as well.
 
 See [example](example/disposed_example.dart) for more details.

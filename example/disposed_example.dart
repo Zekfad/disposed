@@ -24,7 +24,7 @@ class NotificationsProvider extends DisposableContainer implements Disposable {
 
   @override
   void dispose() {
-    // Pay attention that this will be called **AFTER** [disposables] are
+    // Pay attention that this will be called **BEFORE** [disposables] are
     // disposed.
     print('NotificationsProvider is disposed.');
   }
