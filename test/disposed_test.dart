@@ -25,65 +25,119 @@ class _DisposableWrapperWithDisposableStream extends DisposableContainer impleme
 }
 
 class _DisposableObjectContainer extends DisposableContainer {
-  _DisposableObjectContainer(this.streamContainer);
+  _DisposableObjectContainer(this.innerStreamContainer);
 
-  final _DisposableWrapperWithDisposableStream streamContainer;
+  final _DisposableWrapperWithDisposableStream innerStreamContainer;
 
   void addMessage(String message) {
-    streamContainer.addMessage(message);
+    innerStreamContainer.addMessage(message);
   }
 
   @override
-  late final List<Disposable> disposables = [ streamContainer, ];
+  late final List<Disposable> disposables = [ innerStreamContainer, ];
 }
 
 
 void main() {
   group('Test disposable streams', () {
-    _DisposableWrapperWithDisposableStream? streamContainer =
+    _DisposableWrapperWithDisposableStream? innerStreamContainer =
       _DisposableWrapperWithDisposableStream();
     _DisposableObjectContainer? container =
-      _DisposableObjectContainer(streamContainer);
+      _DisposableObjectContainer(innerStreamContainer);
 
-    final _streamContainer = WeakReference(streamContainer);
+    final _innerStreamContainer = WeakReference(innerStreamContainer);
     final _container = WeakReference(container);
 
-    final elapsed = Stopwatch()..start();
-
     test('Test that objects are disposed.', () async {
-      expect(
-        container!.streamContainer.stream,
-        emitsInOrder([
-          '1',
-          '2',
-          // emitsDone,
-          // cannot test for emits done, because
-          // matcher creates strong reference
-        ]),
+      final order = <String>[];
+
+      var i = 0;
+      final _streamEmit = expectAsync1<void, String>(
+        count: 2,
+        (message) {
+          switch(i++) {
+            case 0:
+              expect(message, '1');
+              order.add('message 1');
+            case 1:
+              expect(message, '2');
+              order.add('message 1');
+          }
+        },
       );
-      
+      var streamDone = false;
+      final _streamDone = expectAsync0<bool>(() {
+        expect(streamDone, true);
+        order.add('stream done');
+        return false;
+      });
+
+      container!.innerStreamContainer.stream.listen(
+        _streamEmit,
+        onDone: () {
+          streamDone = true;
+        },
+      );
 
       // Do some work.
       container!.addMessage('1');
       container!.addMessage('2');
 
       // Make object unaccessible.
-      streamContainer = null;
+      innerStreamContainer = null;
       container = null;
 
-      // Wait for GC.
-      while(_streamContainer.target != null || _container.target != null) {
-        if (elapsed.elapsed > const Duration(seconds: 5))
-          fail('Timeout');
+      final _innerStreamContainerDone = expectAsync0<bool>(() {
+        order.add('inner stream container');
+        return false;
+      });
+      final _containerDone = expectAsync0<bool>(() {
+        order.add('container');
+        return false;
+      });
 
-        await Future<void>.delayed(const Duration(milliseconds: 1));
-        // Feed memory to force GC.
-        // ignore: unused_local_variable
-        final bigChunkOfData = '0' * 1024 * 1024 * 5; // about 5mb of data.
-      }
+      await Future.wait([
+        Future.doWhile(() async {
+          await Future<void>.delayed(const Duration(milliseconds: 15));
+          // ignore: unused_local_variable
+          final bigChunkOfData = '0' * 1024 * 1024 * 50; // about 50mb of data.
+          if (_innerStreamContainer.target != null)
+            return true;
+          else
+            return _innerStreamContainerDone();
+        }),
+        Future.doWhile(() async {
+          await Future<void>.delayed(const Duration(milliseconds: 15));
+          // ignore: unused_local_variable
+          final bigChunkOfData = '0' * 1024 * 1024 * 50; // about 50mb of data.
+          if (_container.target != null)
+            return true;
+          else
+            return _containerDone();
+        }),
+        Future.doWhile(() async {
+          await Future<void>.delayed(const Duration(milliseconds: 15));
+          // ignore: unused_local_variable
+          final bigChunkOfData = '0' * 1024 * 1024 * 50; // about 50mb of data.
+          if (!streamDone)
+            return true;
+          else
+            return _streamDone();
+        }),
+      ]);
 
-      expect(_streamContainer.target, isNull);
+      expect(_innerStreamContainer.target, isNull);
       expect(_container.target, isNull);
+      expect(
+        order,
+        orderedEquals([
+          'message 1',
+          'message 1',
+          'container',
+          'inner stream container',
+          'stream done',
+        ]),
+      );
     });
   });
 }
