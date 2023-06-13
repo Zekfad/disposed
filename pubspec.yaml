@@ -1,8 +1,8 @@
 name: disposed
-description: |
+description: >
   Automatically disposable wrappers for objects utilizing Finalizer.
   Auto closable StreamController is included!
-version: 1.0.0
+version: 1.0.1
 homepage: https://github.com/Zekfad/disposed
 repository: https://github.com/Zekfad/disposed
 issue_tracker: https://github.com/Zekfad/disposed/issues
