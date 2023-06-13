@@ -69,7 +69,6 @@ Notice that `NotificationsCenter` itself is only a wrapper (main one)
 and it wont be disposed, only garbage collected by the language GC.
 
 Such order is because parent object have references to children, therefore GC
-destroys parent first, then children looses reference and we'll be destroyed
-as well.
+destroys parent first, then children will lose references and will be destroyed.
 
 See [example](example/disposed_example.dart) for more details.
